@@ -21,3 +21,18 @@ export interface GameState {
   createdAt?: Date;
   updatedAt?: Date;
 }
+
+export interface CourseSetup {
+  id?: string;
+  par1: number;
+  par2: number;
+  par3: number;
+  par4: number;
+  par5: number;
+  par6: number;
+  par7: number;
+  par8: number;
+  par9: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}

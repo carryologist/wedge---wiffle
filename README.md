@@ -6,6 +6,7 @@ A modern, mobile-friendly web app for tracking scores and rules for the Wedge & 
 
 - 📱 **Mobile-First Design**: Optimized for phones and tablets
 - 🎯 **Interactive Scorecard**: Track 9-hole scores for multiple players
+- ⚙️ **Customizable Par Values**: Edit and save par values for each hole
 - 📋 **Complete Rules Reference**: All game mechanics in one place
 - 🌊 **Waterfall Ceremony**: Automatic player ordering and timer
 - 🔄 **Persistent Data**: Scores sync across all devices using Vercel Postgres
@@ -102,14 +103,18 @@ The app uses two main tables:
 - `POST /api/scores/clear` - Clear all scores but keep players
 - `GET /api/game-state` - Get current game state
 - `PATCH /api/game-state` - Update current hole
+- `GET /api/course-setup` - Get par values for all holes
+- `PATCH /api/course-setup` - Update par values
+- `POST /api/course-setup` - Reset all par values to 4
 
 ## Usage
 
 1. **Add Players**: Use the "Add Player" button to add participants with custom colors
-2. **Track Scores**: Enter scores for each hole in the interactive scorecard
-3. **Waterfall Ceremony**: After each hole, use the Waterfall tab to see drinking order
-4. **Clear Scores**: Reset scores for a new game while keeping players
-5. **Reset Game**: Remove all players and start fresh
+2. **Edit Par Values**: Click "Edit Par" to customize par values for each hole (1-10)
+3. **Track Scores**: Enter scores for each hole in the interactive scorecard
+4. **Waterfall Ceremony**: After each hole, use the Waterfall tab to see drinking order
+5. **Clear Scores**: Reset scores for a new game while keeping players and par values
+6. **Reset Game**: Remove all players and start fresh (par values are preserved)
 
 ## Contributing
 

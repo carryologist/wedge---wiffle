@@ -39,3 +39,20 @@ model GameState {
   
   @@map("game_state")
 }
+
+model CourseSetup {
+  id        String   @id @default("current")
+  par1      Int      @default(4)
+  par2      Int      @default(4)
+  par3      Int      @default(4)
+  par4      Int      @default(4)
+  par5      Int      @default(4)
+  par6      Int      @default(4)
+  par7      Int      @default(4)
+  par8      Int      @default(4)
+  par9      Int      @default(4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("course_setup")
+}

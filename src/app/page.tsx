@@ -1,26 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Player, GameState } from '@/types';
-
-const holePars = [4, 4, 4, 4, 4, 4, 4, 4, 4];
+import { Player, GameState, CourseSetup } from '@/types';
 
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [gameState, setGameState] = useState<GameState>({ currentHole: 1 });
+  const [courseSetup, setCourseSetup] = useState<CourseSetup>({
+    par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+    par6: 4, par7: 4, par8: 4, par9: 4
+  });
   const [activeTab, setActiveTab] = useState('rules');
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [showParEditModal, setShowParEditModal] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerColor, setNewPlayerColor] = useState('#10b981');
   const [waterfallActive, setWaterfallActive] = useState(false);
   const [waterfallStartTime, setWaterfallStartTime] = useState<number | null>(null);
   const [waterfallTime, setWaterfallTime] = useState('00:00');
   const [loading, setLoading] = useState(true);
+  const [editingPars, setEditingPars] = useState<CourseSetup>({
+    par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+    par6: 4, par7: 4, par8: 4, par9: 4
+  });
 
   // Load initial data
   useEffect(() => {
     loadPlayers();
     loadGameState();
+    loadCourseSetup();
   }, []);
 
   // Waterfall timer
@@ -57,6 +65,16 @@ export default function Home() {
       setGameState(data);
     } catch (error) {
       console.error('Error loading game state:', error);
+    }
+  };
+
+  const loadCourseSetup = async () => {
+    try {
+      const response = await fetch('/api/course-setup');
+      const data = await response.json();
+      setCourseSetup(data);
+    } catch (error) {
+      console.error('Error loading course setup:', error);
     }
   };
 
@@ -177,6 +195,64 @@ export default function Home() {
     } catch (error) {
       console.error('Error resetting game:', error);
     }
+  };
+
+  const updateParValues = async () => {
+    try {
+      const response = await fetch('/api/course-setup', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingPars)
+      });
+
+      if (response.ok) {
+        const updatedSetup = await response.json();
+        setCourseSetup(updatedSetup);
+        setShowParEditModal(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update par values');
+      }
+    } catch (error) {
+      console.error('Error updating par values:', error);
+      alert('Failed to update par values');
+    }
+  };
+
+  const resetParValues = async () => {
+    if (!confirm('Reset all par values to 4?')) return;
+
+    try {
+      const response = await fetch('/api/course-setup', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const updatedSetup = await response.json();
+        setCourseSetup(updatedSetup);
+        setEditingPars(updatedSetup);
+      }
+    } catch (error) {
+      console.error('Error resetting par values:', error);
+    }
+  };
+
+  const openParEditModal = () => {
+    setEditingPars({ ...courseSetup });
+    setShowParEditModal(true);
+  };
+
+  const getParForHole = (hole: number): number => {
+    const parKey = `par${hole}` as keyof CourseSetup;
+    return courseSetup[parKey] as number || 4;
+  };
+
+  const getTotalPar = (): number => {
+    let total = 0;
+    for (let i = 1; i <= 9; i++) {
+      total += getParForHole(i);
+    }
+    return total;
   };
 
   const getPlayerScore = (player: Player, hole: number): number => {
@@ -328,6 +404,12 @@ export default function Home() {
                   + Add Player
                 </button>
                 <button
+                  onClick={openParEditModal}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                >
+                  ⚙️ Edit Par
+                </button>
+                <button
                   onClick={clearScores}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
                 >
@@ -385,7 +467,7 @@ export default function Home() {
                       {Array.from({ length: 9 }, (_, i) => i + 1).map(hole => (
                         <tr key={hole} className="border-t hover:bg-gray-50">
                           <td className="px-4 py-3 font-semibold">{hole}</td>
-                          <td className="px-4 py-3 text-center font-semibold">{holePars[hole - 1]}</td>
+                          <td className="px-4 py-3 text-center font-semibold">{getParForHole(hole)}</td>
                           {players.map(player => (
                             <td key={player.id} className="px-4 py-3 text-center">
                               <input
@@ -402,7 +484,7 @@ export default function Home() {
                       ))}
                       <tr className="border-t-2 border-emerald-500 bg-emerald-50 font-semibold">
                         <td className="px-4 py-3">Total</td>
-                        <td className="px-4 py-3 text-center">36</td>
+                        <td className="px-4 py-3 text-center">{getTotalPar()}</td>
                         {players.map(player => (
                           <td key={player.id} className="px-4 py-3 text-center">
                             {getPlayerTotal(player)}
@@ -550,6 +632,65 @@ export default function Home() {
                   setNewPlayerName('');
                 }}
                 className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Par Edit Modal */}
+      {showParEditModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-xl font-semibold mb-4 text-center">Edit Par Values</h3>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {Array.from({ length: 9 }, (_, i) => i + 1).map(hole => {
+                const parKey = `par${hole}` as keyof CourseSetup;
+                return (
+                  <div key={hole} className="text-center">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hole {hole}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={editingPars[parKey] as number}
+                      onChange={(e) => setEditingPars({
+                        ...editingPars,
+                        [parKey]: parseInt(e.target.value) || 1
+                      })}
+                      className="w-full px-3 py-2 border rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center mb-4">
+              <p className="text-gray-600">
+                Total Par: <span className="font-semibold text-purple-600">
+                  {Object.values(editingPars).reduce((sum, par) => sum + (typeof par === 'number' ? par : 0), 0)}
+                </span>
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={updateParValues}
+                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg font-medium transition-colors"
+              >
+                Save Par Values
+              </button>
+              <button
+                onClick={resetParValues}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+              >
+                Reset to 4s
+              </button>
+              <button
+                onClick={() => setShowParEditModal(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
