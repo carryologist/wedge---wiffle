@@ -26,47 +26,29 @@ export default function Home() {
 
   // Load initial data
   useEffect(() => {
-    const loadData = async () => {
+    // Skip API calls entirely for now and use local state
+    console.log('Skipping API calls, using local state only');
+    setLoading(false);
+    
+    // Optionally try to load data in background without blocking UI
+    const tryLoadData = async () => {
       try {
-        // Set a timeout to prevent infinite loading
-        const timeout = setTimeout(() => {
-          console.warn('API calls taking too long, using fallback data');
-          setLoading(false);
-        }, 10000); // 10 second timeout
-
-        await Promise.all([
-          loadPlayers().catch(err => {
-            console.error('Failed to load players:', err);
-            setPlayers([]);
-          }),
-          loadGameState().catch(err => {
-            console.error('Failed to load game state:', err);
-            setGameState({ currentHole: 1 });
-          }),
-          loadCourseSetup().catch(err => {
-            console.error('Failed to load course setup:', err);
-            setCourseSetup({
-              par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
-              par6: 4, par7: 4, par8: 4, par9: 4
-            });
-          })
+        const [playersRes, gameStateRes, courseSetupRes] = await Promise.allSettled([
+          fetch('/api/players').then(r => r.ok ? r.json() : Promise.reject()),
+          fetch('/api/game-state').then(r => r.ok ? r.json() : Promise.reject()),
+          fetch('/api/course-setup').then(r => r.ok ? r.json() : Promise.reject())
         ]);
         
-        clearTimeout(timeout);
-        setLoading(false);
+        if (playersRes.status === 'fulfilled') setPlayers(playersRes.value);
+        if (gameStateRes.status === 'fulfilled') setGameState(gameStateRes.value);
+        if (courseSetupRes.status === 'fulfilled') setCourseSetup(courseSetupRes.value);
       } catch (error) {
-        console.error('Error loading initial data:', error);
-        // Use fallback data
-        setGameState({ currentHole: 1 });
-        setCourseSetup({
-          par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
-          par6: 4, par7: 4, par8: 4, par9: 4
-        });
-        setLoading(false);
+        console.log('API calls failed, continuing with local state');
       }
     };
     
-    loadData();
+    // Try loading data after UI is shown
+    setTimeout(tryLoadData, 1000);
   }, []);
 
   // Waterfall timer
@@ -84,111 +66,43 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [waterfallActive, waterfallStartTime]);
 
-  const loadPlayers = async () => {
-    try {
-      const response = await fetch('/api/players');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      setPlayers(data);
-    } catch (error) {
-      console.error('Error loading players:', error);
-      // Don't set loading to false here - let the main useEffect handle it
-      throw error; // Re-throw so the main error handler can catch it
-    }
-  };
-
-  const loadGameState = async () => {
-    try {
-      const response = await fetch('/api/game-state');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      setGameState(data);
-    } catch (error) {
-      console.error('Error loading game state:', error);
-      throw error;
-    }
-  };
-
-  const loadCourseSetup = async () => {
-    try {
-      const response = await fetch('/api/course-setup');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      setCourseSetup(data);
-    } catch (error) {
-      console.error('Error loading course setup:', error);
-      throw error;
-    }
-  };
-
   const addPlayer = async () => {
     if (!newPlayerName.trim()) {
       alert('Please enter a player name');
       return;
     }
 
-    try {
-      const response = await fetch('/api/players', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newPlayerName, color: newPlayerColor })
-      });
-
-      if (response.ok) {
-        const newPlayer = await response.json();
-        setPlayers([...players, newPlayer]);
-        setNewPlayerName('');
-        setShowAddPlayerModal(false);
-        // Generate new random color for next player
-        const colors = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
-        setNewPlayerColor(colors[Math.floor(Math.random() * colors.length)]);
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to add player');
-      }
-    } catch (error) {
-      console.error('Error adding player:', error);
-      alert('Failed to add player');
-    }
+    // Use local state instead of API
+    const newPlayer = {
+      id: Date.now().toString(),
+      name: newPlayerName.trim(),
+      color: newPlayerColor,
+      hole1: 0, hole2: 0, hole3: 0, hole4: 0, hole5: 0,
+      hole6: 0, hole7: 0, hole8: 0, hole9: 0
+    };
+    
+    setPlayers([...players, newPlayer]);
+    setNewPlayerName('');
+    setShowAddPlayerModal(false);
+    
+    // Generate new random color for next player
+    const colors = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+    setNewPlayerColor(colors[Math.floor(Math.random() * colors.length)]);
   };
 
   const removePlayer = async (playerId: string) => {
     if (!confirm('Are you sure you want to remove this player?')) return;
 
-    try {
-      const response = await fetch(`/api/players/${playerId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        setPlayers(players.filter(p => p.id !== playerId));
-      }
-    } catch (error) {
-      console.error('Error removing player:', error);
-    }
+    // Use local state instead of API
+    setPlayers(players.filter(p => p.id !== playerId));
   };
 
   const updateScore = async (playerId: string, hole: number, score: number) => {
-    try {
-      const response = await fetch(`/api/players/${playerId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hole, score })
-      });
-
-      if (response.ok) {
-        const updatedPlayer = await response.json();
-        setPlayers(players.map(p => p.id === playerId ? updatedPlayer : p));
-      }
-    } catch (error) {
-      console.error('Error updating score:', error);
-    }
+    // Use local state instead of API
+    const holeKey = `hole${hole}` as keyof Player;
+    setPlayers(players.map(p => 
+      p.id === playerId ? { ...p, [holeKey]: score } : p
+    ));
   };
 
   const nextHole = async () => {
