@@ -1,7 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Player, GameState, CourseSetup } from '@/types';
+
+interface Player {
+  id: string;
+  name: string;
+  color: string;
+  hole1: number;
+  hole2: number;
+  hole3: number;
+  hole4: number;
+  hole5: number;
+  hole6: number;
+  hole7: number;
+  hole8: number;
+  hole9: number;
+}
+
+interface GameState {
+  currentHole: number;
+}
+
+interface CourseSetup {
+  par1: number;
+  par2: number;
+  par3: number;
+  par4: number;
+  par5: number;
+  par6: number;
+  par7: number;
+  par8: number;
+  par9: number;
+}
 
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -18,38 +48,34 @@ export default function Home() {
   const [waterfallActive, setWaterfallActive] = useState(false);
   const [waterfallStartTime, setWaterfallStartTime] = useState<number | null>(null);
   const [waterfallTime, setWaterfallTime] = useState('00:00');
-  const [loading, setLoading] = useState(true);
   const [editingPars, setEditingPars] = useState<CourseSetup>({
     par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
     par6: 4, par7: 4, par8: 4, par9: 4
   });
 
-  // Load initial data
+  // Load from localStorage on mount
   useEffect(() => {
-    // Skip API calls entirely for now and use local state
-    console.log('Skipping API calls, using local state only');
-    setLoading(false);
+    const savedPlayers = localStorage.getItem('wedge-wiffle-players');
+    const savedGameState = localStorage.getItem('wedge-wiffle-gamestate');
+    const savedCourseSetup = localStorage.getItem('wedge-wiffle-coursesetup');
     
-    // Optionally try to load data in background without blocking UI
-    const tryLoadData = async () => {
-      try {
-        const [playersRes, gameStateRes, courseSetupRes] = await Promise.allSettled([
-          fetch('/api/players').then(r => r.ok ? r.json() : Promise.reject()),
-          fetch('/api/game-state').then(r => r.ok ? r.json() : Promise.reject()),
-          fetch('/api/course-setup').then(r => r.ok ? r.json() : Promise.reject())
-        ]);
-        
-        if (playersRes.status === 'fulfilled') setPlayers(playersRes.value);
-        if (gameStateRes.status === 'fulfilled') setGameState(gameStateRes.value);
-        if (courseSetupRes.status === 'fulfilled') setCourseSetup(courseSetupRes.value);
-      } catch (error) {
-        console.log('API calls failed, continuing with local state');
-      }
-    };
-    
-    // Try loading data after UI is shown
-    setTimeout(tryLoadData, 1000);
+    if (savedPlayers) setPlayers(JSON.parse(savedPlayers));
+    if (savedGameState) setGameState(JSON.parse(savedGameState));
+    if (savedCourseSetup) setCourseSetup(JSON.parse(savedCourseSetup));
   }, []);
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    localStorage.setItem('wedge-wiffle-players', JSON.stringify(players));
+  }, [players]);
+
+  useEffect(() => {
+    localStorage.setItem('wedge-wiffle-gamestate', JSON.stringify(gameState));
+  }, [gameState]);
+
+  useEffect(() => {
+    localStorage.setItem('wedge-wiffle-coursesetup', JSON.stringify(courseSetup));
+  }, [courseSetup]);
 
   // Waterfall timer
   useEffect(() => {
@@ -66,126 +92,82 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [waterfallActive, waterfallStartTime]);
 
-  const addPlayer = async () => {
+  const addPlayer = () => {
     if (!newPlayerName.trim()) {
       alert('Please enter a player name');
       return;
     }
 
-    // Use local state instead of API
-    const newPlayer = {
+    const newPlayer: Player = {
       id: Date.now().toString(),
-      name: newPlayerName.trim(),
+      name: newPlayerName,
       color: newPlayerColor,
-      scores: new Array(9).fill(0), // Add the required scores array
       hole1: 0, hole2: 0, hole3: 0, hole4: 0, hole5: 0,
       hole6: 0, hole7: 0, hole8: 0, hole9: 0
     };
-    
+
     setPlayers([...players, newPlayer]);
     setNewPlayerName('');
     setShowAddPlayerModal(false);
-    
     // Generate new random color for next player
     const colors = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
     setNewPlayerColor(colors[Math.floor(Math.random() * colors.length)]);
   };
 
-  const removePlayer = async (playerId: string) => {
+  const removePlayer = (playerId: string) => {
     if (!confirm('Are you sure you want to remove this player?')) return;
 
-    // Use local state instead of API
     setPlayers(players.filter(p => p.id !== playerId));
   };
 
-  const updateScore = async (playerId: string, hole: number, score: number) => {
-    // Use local state instead of API
-    const holeKey = `hole${hole}` as keyof Player;
-    setPlayers(players.map(p => 
-      p.id === playerId ? { ...p, [holeKey]: score } : p
-    ));
+  const updateScore = (playerId: string, hole: number, score: number) => {
+    setPlayers(players.map(p => p.id === playerId 
+      ? { ...p, [`hole${hole}`]: score } as Player 
+      : p));
   };
 
-  const nextHole = async () => {
+  const nextHole = () => {
     if (gameState.currentHole < 9) {
       const newHole = gameState.currentHole + 1;
-      try {
-        const response = await fetch('/api/game-state', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ currentHole: newHole })
-        });
-
-        if (response.ok) {
-          const updatedGameState = await response.json();
-          setGameState(updatedGameState);
-        }
-      } catch (error) {
-        console.error('Error updating game state:', error);
-      }
+      setGameState({ currentHole: newHole });
     }
   };
 
-  const clearScores = async () => {
+  const clearScores = () => {
     if (!confirm('Are you sure you want to clear all scores? This will reset the game but keep all players.')) return;
 
-    // Use local state instead of API
     setPlayers(players.map(player => ({
       ...player,
-      scores: new Array(9).fill(0),
       hole1: 0, hole2: 0, hole3: 0, hole4: 0, hole5: 0,
       hole6: 0, hole7: 0, hole8: 0, hole9: 0
     })));
     setGameState({ currentHole: 1 });
   };
 
-  const resetGame = async () => {
+  const resetGame = () => {
     if (!confirm('Are you sure you want to reset the entire game? This will remove all players and scores.')) return;
 
-    // Use local state instead of API
     setPlayers([]);
     setGameState({ currentHole: 1 });
     stopWaterfallCeremony();
   };
 
-  const updateParValues = async () => {
-    try {
-      const response = await fetch('/api/course-setup', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingPars)
-      });
-
-      if (response.ok) {
-        const updatedSetup = await response.json();
-        setCourseSetup(updatedSetup);
-        setShowParEditModal(false);
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to update par values');
-      }
-    } catch (error) {
-      console.error('Error updating par values:', error);
-      alert('Failed to update par values');
-    }
+  const updateParValues = () => {
+    setCourseSetup(editingPars);
+    setShowParEditModal(false);
   };
 
-  const resetParValues = async () => {
+  const resetParValues = () => {
     if (!confirm('Reset all par values to 4?')) return;
 
-    try {
-      const response = await fetch('/api/course-setup', {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        const updatedSetup = await response.json();
-        setCourseSetup(updatedSetup);
-        setEditingPars(updatedSetup);
-      }
-    } catch (error) {
-      console.error('Error resetting par values:', error);
-    }
+    setCourseSetup({
+      par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+      par6: 4, par7: 4, par8: 4, par9: 4
+    });
+    setEditingPars({
+      par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+      par6: 4, par7: 4, par8: 4, par9: 4
+    });
   };
 
   const openParEditModal = () => {
@@ -249,14 +231,6 @@ export default function Home() {
     setWaterfallStartTime(null);
     setWaterfallTime('00:00');
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-        <div className="text-white text-xl">Loading Toad Hollow...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
