@@ -3,6 +3,15 @@ export interface Player {
   name: string;
   color: string;
   scores: number[];
+  hole1?: number;
+  hole2?: number;
+  hole3?: number;
+  hole4?: number;
+  hole5?: number;
+  hole6?: number;
+  hole7?: number;
+  hole8?: number;
+  hole9?: number;
 }
 
 export interface GameState {
