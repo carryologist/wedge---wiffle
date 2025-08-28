@@ -244,9 +244,34 @@ export default function Home() {
     setShowParEditModal(true);
   };
 
+  const getEditingPar = (hole: number): number => {
+    switch (hole) {
+      case 1: return editingPars.par1;
+      case 2: return editingPars.par2;
+      case 3: return editingPars.par3;
+      case 4: return editingPars.par4;
+      case 5: return editingPars.par5;
+      case 6: return editingPars.par6;
+      case 7: return editingPars.par7;
+      case 8: return editingPars.par8;
+      case 9: return editingPars.par9;
+      default: return 4;
+    }
+  };
+
   const getParForHole = (hole: number): number => {
-    const parKey = `par${hole}` as keyof CourseSetup;
-    return courseSetup[parKey] as number || 4;
+    switch (hole) {
+      case 1: return courseSetup.par1;
+      case 2: return courseSetup.par2;
+      case 3: return courseSetup.par3;
+      case 4: return courseSetup.par4;
+      case 5: return courseSetup.par5;
+      case 6: return courseSetup.par6;
+      case 7: return courseSetup.par7;
+      case 8: return courseSetup.par8;
+      case 9: return courseSetup.par9;
+      default: return 4;
+    }
   };
 
   const getTotalPar = (): number => {
@@ -258,8 +283,18 @@ export default function Home() {
   };
 
   const getPlayerScore = (player: Player, hole: number): number => {
-    const holeKey = `hole${hole}` as keyof Player;
-    return (player[holeKey] as number) || 0;
+    switch (hole) {
+      case 1: return player.hole1 || 0;
+      case 2: return player.hole2 || 0;
+      case 3: return player.hole3 || 0;
+      case 4: return player.hole4 || 0;
+      case 5: return player.hole5 || 0;
+      case 6: return player.hole6 || 0;
+      case 7: return player.hole7 || 0;
+      case 8: return player.hole8 || 0;
+      case 9: return player.hole9 || 0;
+      default: return 0;
+    }
   };
 
   const getPlayerTotal = (player: Player): number => {
@@ -659,7 +694,7 @@ export default function Home() {
                       type="number"
                       min="1"
                       max="10"
-                      value={editingPars[parKey] as number}
+                      value={getEditingPar(hole)}
                       onChange={(e) => setEditingPars({
                         ...editingPars,
                         [parKey]: parseInt(e.target.value) || 1
