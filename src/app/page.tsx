@@ -26,9 +26,47 @@ export default function Home() {
 
   // Load initial data
   useEffect(() => {
-    loadPlayers();
-    loadGameState();
-    loadCourseSetup();
+    const loadData = async () => {
+      try {
+        // Set a timeout to prevent infinite loading
+        const timeout = setTimeout(() => {
+          console.warn('API calls taking too long, using fallback data');
+          setLoading(false);
+        }, 10000); // 10 second timeout
+
+        await Promise.all([
+          loadPlayers().catch(err => {
+            console.error('Failed to load players:', err);
+            setPlayers([]);
+          }),
+          loadGameState().catch(err => {
+            console.error('Failed to load game state:', err);
+            setGameState({ currentHole: 1 });
+          }),
+          loadCourseSetup().catch(err => {
+            console.error('Failed to load course setup:', err);
+            setCourseSetup({
+              par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+              par6: 4, par7: 4, par8: 4, par9: 4
+            });
+          })
+        ]);
+        
+        clearTimeout(timeout);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+        // Use fallback data
+        setGameState({ currentHole: 1 });
+        setCourseSetup({
+          par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+          par6: 4, par7: 4, par8: 4, par9: 4
+        });
+        setLoading(false);
+      }
+    };
+    
+    loadData();
   }, []);
 
   // Waterfall timer
@@ -49,32 +87,43 @@ export default function Home() {
   const loadPlayers = async () => {
     try {
       const response = await fetch('/api/players');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setPlayers(data);
     } catch (error) {
       console.error('Error loading players:', error);
-    } finally {
-      setLoading(false);
+      // Don't set loading to false here - let the main useEffect handle it
+      throw error; // Re-throw so the main error handler can catch it
     }
   };
 
   const loadGameState = async () => {
     try {
       const response = await fetch('/api/game-state');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setGameState(data);
     } catch (error) {
       console.error('Error loading game state:', error);
+      throw error;
     }
   };
 
   const loadCourseSetup = async () => {
     try {
       const response = await fetch('/api/course-setup');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setCourseSetup(data);
     } catch (error) {
       console.error('Error loading course setup:', error);
+      throw error;
     }
   };
 
