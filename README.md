@@ -69,29 +69,88 @@ A modern, mobile-friendly web app for tracking scores and rules for the Wedge & 
 
 1. **Connect your GitHub repository** to Vercel
 
-2. **Add environment variables** in your Vercel project settings:
-   ```
-   DATABASE_URL=your_vercel_postgres_connection_string
-   ```
+2. **Create Vercel Postgres Database**:
+   - In your Vercel dashboard, go to **Storage**
+   - Click **Create Database** → **Postgres**
+   - Name it `wedge-wiffle-db` (or any name you prefer)
+   - Select your region and click **Create**
 
-3. **Deploy**: Vercel will automatically build and deploy your app
+3. **Add environment variables** in your Vercel project settings:
+   - Go to **Settings** → **Environment Variables**
+   - Add: `DATABASE_URL` = (copy from your Vercel Postgres database settings)
+   - The DATABASE_URL should look like: `postgres://default:xxx@xxx.postgres.vercel-storage.com:5432/verceldb`
 
-4. **Initialize the database**: After deployment, run:
-   ```bash
-   npx prisma db push
-   ```
-   Or use the Vercel CLI:
-   ```bash
-   vercel env pull .env.local
-   npm run db:push
-   ```
+4. **Deploy**: 
+   - Vercel will automatically build and deploy your app
+   - The build process will run `prisma db push` to create database tables
+   - If deployment fails, check the **Functions** tab for error logs
+
+5. **Verify deployment**:
+   - Visit your deployed app URL
+   - Go to `/api/health` to check database connection
+   - You should see: `{"status":"healthy","database":"connected","tables":"initialized"}`
+
+6. **Troubleshooting**:
+   - If buttons are missing, check Vercel **Functions** logs for errors
+   - Ensure `DATABASE_URL` is correctly set in environment variables
+   - Try redeploying from the **Deployments** tab
 
 ### Database Schema
 
-The app uses two main tables:
+The app uses three main tables that are automatically created:
 
 - **Players**: Store player information and hole scores
-- **GameState**: Track the current hole number
+- **GameState**: Track the current hole number  
+- **CourseSetup**: Store custom par values for each hole
+
+### Manual Database Setup (if needed)
+
+If automatic setup fails, you can manually create tables in your Vercel Postgres dashboard:
+
+```sql
+-- Run this in your Vercel Postgres Query tab if tables don't auto-create
+CREATE TABLE IF NOT EXISTS "players" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "color" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "hole1" INTEGER NOT NULL DEFAULT 0,
+    "hole2" INTEGER NOT NULL DEFAULT 0,
+    "hole3" INTEGER NOT NULL DEFAULT 0,
+    "hole4" INTEGER NOT NULL DEFAULT 0,
+    "hole5" INTEGER NOT NULL DEFAULT 0,
+    "hole6" INTEGER NOT NULL DEFAULT 0,
+    "hole7" INTEGER NOT NULL DEFAULT 0,
+    "hole8" INTEGER NOT NULL DEFAULT 0,
+    "hole9" INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT "players_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "game_state" (
+    "id" TEXT NOT NULL DEFAULT 'current',
+    "currentHole" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "game_state_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "course_setup" (
+    "id" TEXT NOT NULL DEFAULT 'current',
+    "par1" INTEGER NOT NULL DEFAULT 4,
+    "par2" INTEGER NOT NULL DEFAULT 4,
+    "par3" INTEGER NOT NULL DEFAULT 4,
+    "par4" INTEGER NOT NULL DEFAULT 4,
+    "par5" INTEGER NOT NULL DEFAULT 4,
+    "par6" INTEGER NOT NULL DEFAULT 4,
+    "par7" INTEGER NOT NULL DEFAULT 4,
+    "par8" INTEGER NOT NULL DEFAULT 4,
+    "par9" INTEGER NOT NULL DEFAULT 4,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "course_setup_pkey" PRIMARY KEY ("id")
+);
+```
 
 ## API Endpoints
 
