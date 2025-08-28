@@ -188,3 +188,5 @@ MIT License - Feel free to adapt for your own camp or family games.
 **Presented by 🐸 Toad Hollow 🐸**
 
 *Drink responsibly and have fun!* 🍻🏌️‍♂️
+
+<!-- Deployment trigger: Force Vercel to use latest commit 5ef2e2a -->
