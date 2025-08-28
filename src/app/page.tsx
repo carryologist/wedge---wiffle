@@ -77,6 +77,7 @@ export default function Home() {
       id: Date.now().toString(),
       name: newPlayerName.trim(),
       color: newPlayerColor,
+      scores: new Array(9).fill(0), // Add the required scores array
       hole1: 0, hole2: 0, hole3: 0, hole4: 0, hole5: 0,
       hole6: 0, hole7: 0, hole8: 0, hole9: 0
     };
@@ -128,36 +129,23 @@ export default function Home() {
   const clearScores = async () => {
     if (!confirm('Are you sure you want to clear all scores? This will reset the game but keep all players.')) return;
 
-    try {
-      const response = await fetch('/api/scores/clear', {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        await loadPlayers();
-        await loadGameState();
-      }
-    } catch (error) {
-      console.error('Error clearing scores:', error);
-    }
+    // Use local state instead of API
+    setPlayers(players.map(player => ({
+      ...player,
+      scores: new Array(9).fill(0),
+      hole1: 0, hole2: 0, hole3: 0, hole4: 0, hole5: 0,
+      hole6: 0, hole7: 0, hole8: 0, hole9: 0
+    })));
+    setGameState({ currentHole: 1 });
   };
 
   const resetGame = async () => {
     if (!confirm('Are you sure you want to reset the entire game? This will remove all players and scores.')) return;
 
-    try {
-      const response = await fetch('/api/players', {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        await loadPlayers();
-        await loadGameState();
-        stopWaterfallCeremony();
-      }
-    } catch (error) {
-      console.error('Error resetting game:', error);
-    }
+    // Use local state instead of API
+    setPlayers([]);
+    setGameState({ currentHole: 1 });
+    stopWaterfallCeremony();
   };
 
   const updateParValues = async () => {
