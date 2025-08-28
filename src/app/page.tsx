@@ -1,871 +1,637 @@
 'use client';
 
-import { useState } from 'react';
-
-interface Player {
-  id: string;
-  name: string;
-  color: string;
-  scores: number[];
-}
+import { useState, useEffect } from 'react';
+import { Player, GameState, CourseSetup } from '@/types';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('rules');
   const [players, setPlayers] = useState<Player[]>([]);
+  const [gameState, setGameState] = useState<GameState>({ currentHole: 1 });
+  const [courseSetup, setCourseSetup] = useState<CourseSetup>({
+    par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+    par6: 4, par7: 4, par8: 4, par9: 4
+  });
+  const [activeTab, setActiveTab] = useState('rules');
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [showParEditModal, setShowParEditModal] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerColor, setNewPlayerColor] = useState('#10b981');
-  const [currentHole, setCurrentHole] = useState(1);
   const [waterfallActive, setWaterfallActive] = useState(false);
   const [waterfallStartTime, setWaterfallStartTime] = useState<number | null>(null);
   const [waterfallTime, setWaterfallTime] = useState('00:00');
-
-  // Add player function
-  const addPlayer = () => {
-    if (!newPlayerName.trim()) return;
-    
-    const newPlayer: Player = {
-      id: Date.now().toString(),
-      name: newPlayerName.trim(),
-      color: newPlayerColor,
-      scores: new Array(9).fill(0)
-    };
-    
-    setPlayers([...players, newPlayer]);
-    setNewPlayerName('');
-    setNewPlayerColor('#10b981');
-    setShowAddPlayerModal(false);
-  };
-
-  // Remove player function
-  const removePlayer = (playerId: string) => {
-    setPlayers(players.filter(p => p.id !== playerId));
-  };
-
-  // Update score function
-  const updateScore = (playerId: string, hole: number, score: number) => {
-    setPlayers(players.map(player => {
-      if (player.id === playerId) {
-        const newScores = [...player.scores];
-        newScores[hole - 1] = score;
-        return { ...player, scores: newScores };
-      }
-      return player;
-    }));
-  };
-
-  // Get player total
-  const getPlayerTotal = (player: Player): number => {
-    return player.scores.reduce((sum, score) => sum + score, 0);
-  };
-
-  // Clear all scores
-  const clearScores = () => {
-    if (confirm('Clear all scores?')) {
-      setPlayers(players.map(player => ({
-        ...player,
-        scores: new Array(9).fill(0)
-      })));
-    }
-  };
-
-  // Reset game
-  const resetGame = () => {
-    if (confirm('Reset entire game? This will remove all players and scores.')) {
-      setPlayers([]);
-      setCurrentHole(1);
-      setWaterfallActive(false);
-      setWaterfallStartTime(null);
-    }
-  };
-
-  // Waterfall functions
-  const startWaterfall = () => {
-    setWaterfallActive(true);
-    setWaterfallStartTime(Date.now());
-    setActiveTab('waterfall');
-  };
-
-  const stopWaterfall = () => {
-    setWaterfallActive(false);
-    setWaterfallStartTime(null);
-  };
-
-  // Update waterfall timer
-  useState(() => {
-    if (waterfallActive && waterfallStartTime) {
-      const interval = setInterval(() => {
-        const elapsed = Date.now() - waterfallStartTime;
-        const minutes = Math.floor(elapsed / 60000);
-        const seconds = Math.floor((elapsed % 60000) / 1000);
-        setWaterfallTime(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
+  const [loading, setLoading] = useState(true);
+  const [editingPars, setEditingPars] = useState<CourseSetup>({
+    par1: 4, par2: 4, par3: 4, par4: 4, par5: 4,
+    par6: 4, par7: 4, par8: 4, par9: 4
   });
 
-  // Get waterfall order (sorted by current hole score)
+  // Load initial data
+  useEffect(() => {
+    loadPlayers();
+    loadGameState();
+    loadCourseSetup();
+  }, []);
+
+  // Waterfall timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (waterfallActive && waterfallStartTime) {
+      interval = setInterval(() => {
+        const elapsed = Date.now() - waterfallStartTime;
+        const seconds = Math.floor(elapsed / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        setWaterfallTime(`${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`);
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [waterfallActive, waterfallStartTime]);
+
+  const loadPlayers = async () => {
+    try {
+      const response = await fetch('/api/players');
+      const data = await response.json();
+      setPlayers(data);
+    } catch (error) {
+      console.error('Error loading players:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadGameState = async () => {
+    try {
+      const response = await fetch('/api/game-state');
+      const data = await response.json();
+      setGameState(data);
+    } catch (error) {
+      console.error('Error loading game state:', error);
+    }
+  };
+
+  const loadCourseSetup = async () => {
+    try {
+      const response = await fetch('/api/course-setup');
+      const data = await response.json();
+      setCourseSetup(data);
+    } catch (error) {
+      console.error('Error loading course setup:', error);
+    }
+  };
+
+  const addPlayer = async () => {
+    if (!newPlayerName.trim()) {
+      alert('Please enter a player name');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newPlayerName, color: newPlayerColor })
+      });
+
+      if (response.ok) {
+        const newPlayer = await response.json();
+        setPlayers([...players, newPlayer]);
+        setNewPlayerName('');
+        setShowAddPlayerModal(false);
+        // Generate new random color for next player
+        const colors = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+        setNewPlayerColor(colors[Math.floor(Math.random() * colors.length)]);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to add player');
+      }
+    } catch (error) {
+      console.error('Error adding player:', error);
+      alert('Failed to add player');
+    }
+  };
+
+  const removePlayer = async (playerId: string) => {
+    if (!confirm('Are you sure you want to remove this player?')) return;
+
+    try {
+      const response = await fetch(`/api/players/${playerId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setPlayers(players.filter(p => p.id !== playerId));
+      }
+    } catch (error) {
+      console.error('Error removing player:', error);
+    }
+  };
+
+  const updateScore = async (playerId: string, hole: number, score: number) => {
+    try {
+      const response = await fetch(`/api/players/${playerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hole, score })
+      });
+
+      if (response.ok) {
+        const updatedPlayer = await response.json();
+        setPlayers(players.map(p => p.id === playerId ? updatedPlayer : p));
+      }
+    } catch (error) {
+      console.error('Error updating score:', error);
+    }
+  };
+
+  const nextHole = async () => {
+    if (gameState.currentHole < 9) {
+      const newHole = gameState.currentHole + 1;
+      try {
+        const response = await fetch('/api/game-state', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentHole: newHole })
+        });
+
+        if (response.ok) {
+          const updatedGameState = await response.json();
+          setGameState(updatedGameState);
+        }
+      } catch (error) {
+        console.error('Error updating game state:', error);
+      }
+    }
+  };
+
+  const clearScores = async () => {
+    if (!confirm('Are you sure you want to clear all scores? This will reset the game but keep all players.')) return;
+
+    try {
+      const response = await fetch('/api/scores/clear', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        await loadPlayers();
+        await loadGameState();
+      }
+    } catch (error) {
+      console.error('Error clearing scores:', error);
+    }
+  };
+
+  const resetGame = async () => {
+    if (!confirm('Are you sure you want to reset the entire game? This will remove all players and scores.')) return;
+
+    try {
+      const response = await fetch('/api/players', {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        await loadPlayers();
+        await loadGameState();
+        stopWaterfallCeremony();
+      }
+    } catch (error) {
+      console.error('Error resetting game:', error);
+    }
+  };
+
+  const updateParValues = async () => {
+    try {
+      const response = await fetch('/api/course-setup', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingPars)
+      });
+
+      if (response.ok) {
+        const updatedSetup = await response.json();
+        setCourseSetup(updatedSetup);
+        setShowParEditModal(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update par values');
+      }
+    } catch (error) {
+      console.error('Error updating par values:', error);
+      alert('Failed to update par values');
+    }
+  };
+
+  const resetParValues = async () => {
+    if (!confirm('Reset all par values to 4?')) return;
+
+    try {
+      const response = await fetch('/api/course-setup', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const updatedSetup = await response.json();
+        setCourseSetup(updatedSetup);
+        setEditingPars(updatedSetup);
+      }
+    } catch (error) {
+      console.error('Error resetting par values:', error);
+    }
+  };
+
+  const openParEditModal = () => {
+    setEditingPars({ ...courseSetup });
+    setShowParEditModal(true);
+  };
+
+  const getParForHole = (hole: number): number => {
+    const parKey = `par${hole}` as keyof CourseSetup;
+    return courseSetup[parKey] as number || 4;
+  };
+
+  const getTotalPar = (): number => {
+    let total = 0;
+    for (let i = 1; i <= 9; i++) {
+      total += getParForHole(i);
+    }
+    return total;
+  };
+
+  const getPlayerScore = (player: Player, hole: number): number => {
+    const holeKey = `hole${hole}` as keyof Player;
+    return (player[holeKey] as number) || 0;
+  };
+
+  const getPlayerTotal = (player: Player): number => {
+    let total = 0;
+    for (let i = 1; i <= 9; i++) {
+      total += getPlayerScore(player, i);
+    }
+    return total;
+  };
+
   const getWaterfallOrder = () => {
-    return [...players].sort((a, b) => {
-      const scoreA = a.scores[currentHole - 1] || 0;
-      const scoreB = b.scores[currentHole - 1] || 0;
-      return scoreA - scoreB;
+    if (players.length === 0) return [];
+    
+    const playersWithScores = players.map(player => ({
+      ...player,
+      currentScore: getPlayerScore(player, gameState.currentHole)
+    }));
+
+    return playersWithScores.sort((a, b) => {
+      if (a.currentScore === 0 && b.currentScore === 0) return 0;
+      if (a.currentScore === 0) return 1;
+      if (b.currentScore === 0) return -1;
+      return a.currentScore - b.currentScore;
     });
   };
 
+  const startWaterfallCeremony = () => {
+    if (players.length === 0) {
+      alert('Add players first!');
+      return;
+    }
+    setWaterfallActive(true);
+    setWaterfallStartTime(Date.now());
+  };
+
+  const stopWaterfallCeremony = () => {
+    setWaterfallActive(false);
+    setWaterfallStartTime(null);
+    setWaterfallTime('00:00');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+        <div className="text-white text-xl">Loading Toad Hollow...</div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '32px 16px'
-      }}>
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
+      <div className="max-w-6xl mx-auto bg-white/95 backdrop-blur-sm min-h-screen shadow-2xl">
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            color: 'white',
-            marginBottom: '8px',
-            textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
-          }}>
-            🏌️‍♂️ Wedge & Wiffle
-          </h1>
-          <p style={{
-            color: 'rgba(255,255,255,0.8)',
-            fontSize: '1.125rem'
-          }}>Lawn Golf Drinking Game (21+)</p>
-        </div>
+        <header className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white p-8 text-center shadow-lg">
+          <div className="max-w-2xl mx-auto">
+            <div className="text-4xl mb-4 animate-bounce">
+              🐸 🏌️‍♂️ 🐸
+            </div>
+            <h1 className="text-4xl font-bold mb-2 text-shadow">🏌️‍♂️ Wedge & Wiffle</h1>
+            <p className="text-sm opacity-80 uppercase tracking-wider italic mb-1">presented by</p>
+            <h2 className="text-2xl font-semibold text-yellow-200 mb-4 animate-pulse">🐸 Toad Hollow 🐸</h2>
+            <p className="text-lg opacity-90">Lawn Golf Drinking Game (21+)</p>
+          </div>
+        </header>
 
         {/* Navigation */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '4px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-            display: 'flex',
-            flexWrap: 'wrap'
-          }}>
+        <nav className="flex border-b bg-white overflow-x-auto">
+          {[
+            { id: 'rules', label: '📋 Rules', emoji: '📋' },
+            { id: 'scorecard', label: '🏆 Scorecard', emoji: '🏆' },
+            { id: 'waterfall', label: '🌊 Waterfall', emoji: '🌊' }
+          ].map(tab => (
             <button
-              onClick={() => setActiveTab('rules')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                margin: '4px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: activeTab === 'rules' ? '#10b981' : 'transparent',
-                color: activeTab === 'rules' ? 'white' : '#6b7280'
-              }}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 min-w-32 px-4 py-4 font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'text-emerald-600 border-b-3 border-emerald-500 bg-emerald-50'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
             >
-              📋 Rules
+              {tab.label}
             </button>
-            <button
-              onClick={() => setActiveTab('scorecard')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                margin: '4px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: activeTab === 'scorecard' ? '#10b981' : 'transparent',
-                color: activeTab === 'scorecard' ? 'white' : '#6b7280'
-              }}
-            >
-              🏆 Scorecard
-            </button>
-            <button
-              onClick={() => setActiveTab('waterfall')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                margin: '4px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: activeTab === 'waterfall' ? '#10b981' : 'transparent',
-                color: activeTab === 'waterfall' ? 'white' : '#6b7280'
-              }}
-            >
-              🌊 Waterfall
-            </button>
-          </div>
-        </div>
+          ))}
+        </nav>
 
         {/* Content */}
-        <div style={{
-          background: 'white',
-          borderRadius: '8px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-          padding: '24px'
-        }}>
+        <div className="p-6">
           {/* Rules Tab */}
           {activeTab === 'rules' && (
-            <div>
-              <h2 style={{
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                marginBottom: '24px',
-                textAlign: 'center'
-              }}>🎯 Game Rules</h2>
+            <div className="space-y-6">
+              <RulesCard title="🎯 Setup" items={[
+                '9 "holes" marked with flags, cones, or sticks',
+                'One wedge & unique-colored wiffle ball per player',
+                'Course = backyard, field, or lawn with obstacles'
+              ]} />
               
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                gap: '24px'
-              }}>
-                <div style={{
-                  background: '#f0fdf4',
-                  padding: '24px',
-                  borderRadius: '8px',
-                  border: '1px solid #bbf7d0'
-                }}>
-                  <h3 style={{
-                    fontWeight: 'bold',
-                    fontSize: '1.25rem',
-                    marginBottom: '12px',
-                    color: '#166534'
-                  }}>🏌️ Setup</h3>
-                  <ul style={{ listStyle: 'disc', paddingLeft: '20px', color: '#374151' }}>
-                    <li style={{ marginBottom: '8px' }}>9 holes marked with flags, cones, or sticks</li>
-                    <li style={{ marginBottom: '8px' }}>One wedge & unique-colored wiffle ball per player</li>
-                    <li style={{ marginBottom: '8px' }}>Course = backyard, field, or lawn with obstacles</li>
-                  </ul>
-                </div>
-
-                <div style={{
-                  background: '#eff6ff',
-                  padding: '24px',
-                  borderRadius: '8px',
-                  border: '1px solid #bfdbfe'
-                }}>
-                  <h3 style={{
-                    fontWeight: 'bold',
-                    fontSize: '1.25rem',
-                    marginBottom: '12px',
-                    color: '#1e40af'
-                  }}>🎮 How To Play</h3>
-                  <ol style={{ listStyle: 'decimal', paddingLeft: '20px', color: '#374151' }}>
-                    <li style={{ marginBottom: '8px' }}>Tee Off: Everyone shoots toward the target in turn</li>
-                    <li style={{ marginBottom: '8px' }}>Scoring: Land within 1 stride (≈3 ft) of flag</li>
-                    <li style={{ marginBottom: '8px' }}>Each stroke = 1 point. Lowest total wins</li>
-                  </ol>
-                </div>
-
-                <div style={{
-                  background: '#faf5ff',
-                  padding: '24px',
-                  borderRadius: '8px',
-                  border: '1px solid #e9d5ff'
-                }}>
-                  <h3 style={{
-                    fontWeight: 'bold',
-                    fontSize: '1.25rem',
-                    marginBottom: '12px',
-                    color: '#7c3aed'
-                  }}>⚔️ Foiling</h3>
-                  <p style={{ color: '#374151', marginBottom: '8px' }}>If your ball strikes another:</p>
-                  <ul style={{ listStyle: 'disc', paddingLeft: '20px', color: '#374151' }}>
-                    <li style={{ marginBottom: '4px' }}><strong>Send:</strong> Move opponent&apos;s ball 1 wedge-head away</li>
-                    <li style={{ marginBottom: '4px' }}><strong>Burn:</strong> Reset opponent&apos;s ball to previous spot</li>
-                    <li style={{ marginBottom: '4px' }}><strong>Choice:</strong> Accept or drink & ignore</li>
-                  </ul>
-                </div>
-
-                <div style={{
-                  background: '#fef2f2',
-                  padding: '24px',
-                  borderRadius: '8px',
-                  border: '1px solid #fecaca'
-                }}>
-                  <h3 style={{
-                    fontWeight: 'bold',
-                    fontSize: '1.25rem',
-                    marginBottom: '12px',
-                    color: '#dc2626'
-                  }}>🍻 Drinking Rules</h3>
-                  <ul style={{ listStyle: 'disc', paddingLeft: '20px', color: '#374151' }}>
-                    <li style={{ marginBottom: '4px' }}>Reject foil → 1 sip</li>
-                    <li style={{ marginBottom: '4px' }}>Overshoot 2+ strides → 1 sip</li>
-                    <li style={{ marginBottom: '4px' }}>Out of bounds → 1 sip & reset</li>
-                    <li style={{ marginBottom: '4px' }}>Triple Bogey → finish drink</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div style={{
-                background: 'linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%)',
-                padding: '24px',
-                borderRadius: '8px',
-                borderLeft: '4px solid #3b82f6',
-                marginTop: '24px'
-              }}>
-                <h3 style={{
-                  fontWeight: 'bold',
-                  fontSize: '1.25rem',
-                  marginBottom: '12px',
-                  color: '#1e40af'
-                }}>🌊 Waterfall Ceremony (After Each Hole)</h3>
-                <ol style={{ listStyle: 'decimal', paddingLeft: '20px', color: '#374151' }}>
-                  <li style={{ marginBottom: '8px' }}>Players line up in order of strokes (lowest first)</li>
-                  <li style={{ marginBottom: '8px' }}>Lowest scorer begins drinking; no one else may stop until they do</li>
-                  <li style={{ marginBottom: '8px' }}>Once they stop, next lowest may stop, and so on</li>
-                  <li style={{ marginBottom: '8px' }}>Highest scorer(s) end up drinking longest!</li>
+              <RulesCard title="🏌️ How To Play" items={[
+                '<strong>Tee Off:</strong> Everyone shoots toward the target in turn',
+                '<strong>Scoring a Hole:</strong> Land within 1 stride (≈3 ft) of the flag, or hit the flagpole directly',
+                '<strong>Taking Turns:</strong> Each stroke = 1 point. Lowest total after 9 holes wins'
+              ]} ordered />
+              
+              <RulesCard title="⚔️ Foiling (Croquet-Style)" items={[
+                'If your ball strikes another, you Foil:',
+                '<strong>Send:</strong> Get a free swing to pitch the opponent\'s ball in any desired direction',
+                '<strong>Burn:</strong> Return the opponent\'s ball to the tee for that hole',
+                '<strong>Foiled Player Choice:</strong> Accept or take a 1-drink penalty (ball stays in original spot)'
+              ]} />
+              
+              <RulesCard title="🍻 Drinking Rules" items={[
+                '<strong>Foiled:</strong> Take a sip if you reject a foil',
+                '<strong>Hazards:</strong>',
+                '• Overshoot (2+ strides past target) → +1 sip',
+                '• Out of bounds (driveway, roof, etc.) → +1 sip & reset',
+                '• Triple Bogey (3+ over par) → finish your drink before next hole'
+              ]} />
+              
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-l-4 border-blue-500 rounded-lg p-6">
+                <h3 className="text-xl font-semibold mb-4 text-blue-800">🌊 Waterfall Ceremony (After Each Hole)</h3>
+                <ol className="list-decimal list-inside space-y-2 text-gray-700">
+                  <li>Players line up in order of strokes (lowest first)</li>
+                  <li>The lowest scorer begins drinking; no one else may stop until they do</li>
+                  <li>Once they stop, the next lowest may stop, and so on</li>
+                  <li>Highest scorer(s) end up drinking longest!</li>
                 </ol>
               </div>
-
-              <div style={{
-                background: '#fffbeb',
-                padding: '24px',
-                borderRadius: '8px',
-                textAlign: 'center',
-                marginTop: '24px',
-                border: '1px solid #fed7aa'
-              }}>
-                <h3 style={{
-                  fontWeight: 'bold',
-                  fontSize: '1.25rem',
-                  marginBottom: '12px',
-                  color: '#d97706'
-                }}>🏆 Victory</h3>
-                <p style={{ color: '#374151', marginBottom: '8px' }}>Lowest total strokes after 9 holes wins!</p>
-                <p style={{ color: '#374151' }}>Loser(s) buy/mix a communal drink or do a camp dare.</p>
-              </div>
+              
+              <RulesCard title="🏆 Victory" items={[
+                '<strong>Stroke Play:</strong> Lowest total strokes after 9 holes wins',
+                'Loser(s) buy/mix a communal drink or do a camp dare'
+              ]} />
             </div>
           )}
 
           {/* Scorecard Tab */}
           {activeTab === 'scorecard' && (
-            <div>
-              <h2 style={{
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                marginBottom: '24px',
-                textAlign: 'center'
-              }}>🏆 Scorecard</h2>
-              
-              {/* Action Buttons */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '16px',
-                marginBottom: '24px'
-              }}>
-                <button 
+            <div className="space-y-6">
+              <div className="flex flex-wrap gap-2 sm:gap-4">
+                <button
                   onClick={() => setShowAddPlayerModal(true)}
-                  style={{
-                    background: '#10b981',
-                    color: 'white',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.background = '#059669'}
-                  onMouseOut={(e) => e.currentTarget.style.background = '#10b981'}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   + Add Player
                 </button>
-                <button 
-                  onClick={() => alert('Par editing feature - coming soon!')}
-                  style={{
-                    background: '#8b5cf6',
-                    color: 'white',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
+                <button
+                  onClick={openParEditModal}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   ⚙️ Edit Par
                 </button>
-                <button 
+                <button
                   onClick={clearScores}
-                  style={{
-                    background: '#f59e0b',
-                    color: 'white',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   🔄 Clear Scores
                 </button>
-                <button 
+                <button
                   onClick={resetGame}
-                  style={{
-                    background: '#ef4444',
-                    color: 'white',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   🗑️ Reset Game
                 </button>
               </div>
 
-              {/* Players List */}
+              {/* Players */}
               {players.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <h3 style={{ fontWeight: '600', marginBottom: '12px' }}>Players ({players.length})</h3>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {players.map(player => (
-                      <div key={player.id} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: '#f3f4f6',
-                        padding: '8px 12px',
-                        borderRadius: '8px'
-                      }}>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          backgroundColor: player.color
-                        }}></div>
-                        <span style={{ fontWeight: '500' }}>{player.name}</span>
-                        <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>({getPlayerTotal(player)})</span>
-                        <button 
-                          onClick={() => removePlayer(player.id)}
-                          style={{
-                            color: '#ef4444',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            marginLeft: '4px'
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  {players.map(player => (
+                    <div
+                      key={player.id}
+                      className="flex items-center gap-2 bg-white border-2 rounded-full px-4 py-2 shadow-sm"
+                      style={{ borderColor: player.color }}
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: player.color }}
+                      />
+                      <span className="font-medium">{player.name}</span>
+                      <button
+                        onClick={() => removePlayer(player.id)}
+                        className="bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
 
               {/* Scorecard Table */}
-              <div style={{
-                overflowX: 'auto',
-                background: '#f9fafb',
-                borderRadius: '8px',
-                padding: '16px'
-              }}>
-                {players.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                    <p style={{ color: '#6b7280', fontSize: '1.125rem', marginBottom: '16px' }}>No players added yet!</p>
-                    <button 
-                      onClick={() => setShowAddPlayerModal(true)}
-                      style={{
-                        background: '#10b981',
-                        color: 'white',
-                        padding: '12px 24px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontWeight: '500',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      + Add Your First Player
-                    </button>
-                  </div>
-                ) : (
-                  <table style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    background: 'white',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                  }}>
-                    <thead>
-                      <tr style={{ background: '#e5e7eb' }}>
-                        <th style={{ border: '1px solid #d1d5db', padding: '12px', fontWeight: 'bold' }}>Hole</th>
-                        <th style={{ border: '1px solid #d1d5db', padding: '12px', fontWeight: 'bold' }}>Par</th>
+              {players.length > 0 ? (
+                <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold">Hole</th>
+                        <th className="px-4 py-3 text-center font-semibold">Par</th>
                         {players.map(player => (
-                          <th key={player.id} style={{
-                            border: '1px solid #d1d5db',
-                            padding: '12px',
-                            fontWeight: 'bold',
-                            color: player.color
-                          }}>
-                            {player.name}
+                          <th key={player.id} className="px-4 py-3 text-center font-semibold">
+                            <div style={{ color: player.color }}>{player.name}</div>
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {[1,2,3,4,5,6,7,8,9].map(hole => (
-                        <tr key={hole} style={{
-                          background: hole === currentHole ? '#dbeafe' : 'white'
-                        }}>
-                          <td style={{
-                            border: '1px solid #d1d5db',
-                            padding: '12px',
-                            textAlign: 'center',
-                            fontWeight: 'bold'
-                          }}>{hole}</td>
-                          <td style={{
-                            border: '1px solid #d1d5db',
-                            padding: '12px',
-                            textAlign: 'center'
-                          }}>4</td>
+                      {Array.from({ length: 9 }, (_, i) => i + 1).map(hole => (
+                        <tr key={hole} className="border-t hover:bg-gray-50">
+                          <td className="px-4 py-3 font-semibold">{hole}</td>
+                          <td className="px-4 py-3 text-center font-semibold">{getParForHole(hole)}</td>
                           {players.map(player => (
-                            <td key={player.id} style={{
-                              border: '1px solid #d1d5db',
-                              padding: '8px'
-                            }}>
-                              <input 
-                                type="number" 
-                                style={{
-                                  width: '100%',
-                                  textAlign: 'center',
-                                  border: '1px solid #d1d5db',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px'
-                                }}
-                                min="1" 
+                            <td key={player.id} className="px-4 py-3 text-center">
+                              <input
+                                type="number"
+                                min="1"
                                 max="15"
-                                value={player.scores[hole - 1] || ''}
+                                value={getPlayerScore(player, hole) || ''}
                                 onChange={(e) => updateScore(player.id, hole, parseInt(e.target.value) || 0)}
+                                className="w-16 px-2 py-1 border rounded text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               />
                             </td>
                           ))}
                         </tr>
                       ))}
-                      <tr style={{ background: '#dcfce7', fontWeight: 'bold' }}>
-                        <td style={{
-                          border: '1px solid #d1d5db',
-                          padding: '12px',
-                          textAlign: 'center'
-                        }}>TOTAL</td>
-                        <td style={{
-                          border: '1px solid #d1d5db',
-                          padding: '12px',
-                          textAlign: 'center'
-                        }}>36</td>
+                      <tr className="border-t-2 border-emerald-500 bg-emerald-50 font-semibold">
+                        <td className="px-4 py-3">Total</td>
+                        <td className="px-4 py-3 text-center">{getTotalPar()}</td>
                         {players.map(player => (
-                          <td key={player.id} style={{
-                            border: '1px solid #d1d5db',
-                            padding: '12px',
-                            textAlign: 'center'
-                          }}>
+                          <td key={player.id} className="px-4 py-3 text-center">
                             {getPlayerTotal(player)}
                           </td>
                         ))}
                       </tr>
                     </tbody>
                   </table>
-                )}
-              </div>
-
-              {/* Current Hole & Waterfall */}
-              {players.length > 0 && (
-                <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                  <div style={{
-                    background: '#dbeafe',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    display: 'inline-block'
-                  }}>
-                    <h3 style={{ fontWeight: 'bold', fontSize: '1.125rem', marginBottom: '8px' }}>Current Hole: {currentHole}</h3>
-                    <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                      <button 
-                        onClick={startWaterfall}
-                        style={{
-                          background: '#3b82f6',
-                          color: 'white',
-                          padding: '8px 16px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        🌊 Start Waterfall
-                      </button>
-                      <button 
-                        onClick={() => setCurrentHole(Math.min(9, currentHole + 1))}
-                        style={{
-                          background: '#6b7280',
-                          color: 'white',
-                          padding: '8px 16px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Next Hole →
-                      </button>
-                    </div>
-                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-6xl mb-4">🏌️‍♂️</div>
+                  <p className="text-xl">Add players to start tracking scores!</p>
                 </div>
               )}
+
+              {/* Current Hole Info */}
+              <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+                <h3 className="text-2xl font-semibold mb-4">
+                  Current Hole: <span className="text-emerald-600">{gameState.currentHole}</span>
+                </h3>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <button
+                    onClick={() => setActiveTab('waterfall')}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    🌊 Start Waterfall
+                  </button>
+                  <button
+                    onClick={nextHole}
+                    disabled={gameState.currentHole >= 9}
+                    className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    {gameState.currentHole >= 9 ? 'Game Complete!' : 'Next Hole →'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Waterfall Tab */}
           {activeTab === 'waterfall' && (
-            <div>
-              <h2 style={{
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                marginBottom: '24px',
-                textAlign: 'center'
-              }}>🌊 Waterfall Ceremony</h2>
-              
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <p style={{
-                  fontSize: '1.125rem',
-                  color: '#374151',
-                  marginBottom: '16px'
-                }}>
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-2xl font-semibold mb-4 text-center">🌊 Waterfall Ceremony</h2>
+                <p className="text-gray-600 text-center mb-6">
                   After each hole, players drink in order from lowest to highest score!
                 </p>
-                
-                {waterfallActive && (
-                  <div style={{
-                    background: '#dbeafe',
-                    padding: '24px',
-                    borderRadius: '8px',
-                    marginBottom: '24px'
-                  }}>
-                    <h3 style={{
-                      fontSize: '1.5rem',
-                      fontWeight: 'bold',
-                      color: '#1e40af',
-                      marginBottom: '8px'
-                    }}>Waterfall in Progress...</h3>
-                    <div style={{
-                      fontSize: '2.5rem',
-                      fontFamily: 'monospace',
-                      fontWeight: 'bold',
-                      color: '#2563eb'
-                    }}>{waterfallTime}</div>
-                  </div>
-                )}
-                
-                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '24px' }}>
+
+                {/* Waterfall Order */}
+                <div className="space-y-3 mb-6">
+                  {players.length === 0 ? (
+                    <p className="text-center text-gray-500 italic py-8">
+                      Add players in the Scorecard tab to see waterfall order
+                    </p>
+                  ) : (
+                    getWaterfallOrder().map((player, index) => (
+                      <div
+                        key={player.id}
+                        className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border-l-4"
+                        style={{ borderLeftColor: player.color }}
+                      >
+                        <div className="bg-emerald-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-semibold">
+                          {index + 1}
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: player.color }}
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold">{player.name}</div>
+                          <div className="text-sm text-gray-600">
+                            Hole {gameState.currentHole}: {player.currentScore || 'Not scored'} strokes
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Waterfall Controls */}
+                <div className="flex flex-wrap gap-4 justify-center">
                   {!waterfallActive ? (
-                    <button 
-                      onClick={startWaterfall}
-                      style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        padding: '12px 24px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontWeight: '500',
-                        cursor: 'pointer'
-                      }}
+                    <button
+                      onClick={startWaterfallCeremony}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors"
                     >
-                      🌊 Start Waterfall Ceremony
+                      🌊 Start Ceremony
                     </button>
                   ) : (
-                    <button 
-                      onClick={stopWaterfall}
-                      style={{
-                        background: '#ef4444',
-                        color: 'white',
-                        padding: '12px 24px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontWeight: '500',
-                        cursor: 'pointer'
-                      }}
+                    <button
+                      onClick={stopWaterfallCeremony}
+                      className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-lg font-medium text-lg transition-colors"
                     >
                       ⏹️ Stop Waterfall
                     </button>
                   )}
                 </div>
-              </div>
 
-              {/* Waterfall Order */}
-              <div style={{
-                background: '#f9fafb',
-                padding: '24px',
-                borderRadius: '8px'
-              }}>
-                <h3 style={{
-                  fontWeight: 'bold',
-                  fontSize: '1.25rem',
-                  marginBottom: '16px',
-                  textAlign: 'center'
-                }}>Drinking Order (Hole {currentHole})</h3>
-                {players.length === 0 ? (
-                  <p style={{ textAlign: 'center', color: '#6b7280' }}>Add players in the Scorecard tab to see waterfall order</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {getWaterfallOrder().map((player, index) => (
-                      <div key={player.id} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '16px',
-                        background: 'white',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                      }}>
-                        <div style={{
-                          background: '#3b82f6',
-                          color: 'white',
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 'bold'
-                        }}>
-                          {index + 1}
-                        </div>
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '50%',
-                          backgroundColor: player.color
-                        }}></div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 'bold' }}>{player.name}</div>
-                          <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                            Hole {currentHole}: {player.scores[currentHole - 1] || 0} strokes
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                {/* Waterfall Timer */}
+                {waterfallActive && (
+                  <div className="text-center mt-8 p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
+                    <h3 className="text-xl font-semibold mb-4 text-blue-800">Waterfall in Progress...</h3>
+                    <div className="text-6xl font-mono font-bold text-blue-600">{waterfallTime}</div>
                   </div>
                 )}
               </div>
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div style={{
-          textAlign: 'center',
-          marginTop: '32px',
-          color: 'rgba(255,255,255,0.6)'
-        }}>
-          <p style={{ fontSize: '1.125rem' }}>🐸 Presented by Toad Hollow 🐸</p>
-          <p style={{ fontSize: '0.875rem' }}>Drink responsibly and have fun! 🍻🏌️‍♂️</p>
-        </div>
       </div>
 
       {/* Add Player Modal */}
       {showAddPlayerModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
-          zIndex: 50
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '400px'
-          }}>
-            <h3 style={{
-              fontSize: '1.25rem',
-              fontWeight: 'bold',
-              marginBottom: '16px',
-              textAlign: 'center'
-            }}>Add New Player</h3>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '4px'
-              }}>Player Name</label>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4 text-center">Add New Player</h3>
+            <div className="space-y-4">
               <input
                 type="text"
+                placeholder="Enter player name"
                 value={newPlayerName}
                 onChange={(e) => setNewPlayerName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '1rem'
-                }}
-                placeholder="Enter player name"
+                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 maxLength={20}
+                onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
               />
-            </div>
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '4px'
-              }}>Player Color</label>
               <input
                 type="color"
                 value={newPlayerColor}
                 onChange={(e) => setNewPlayerColor(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: '48px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
+                className="w-full h-12 border rounded-lg cursor-pointer"
               />
             </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div className="flex gap-4 mt-6">
               <button
                 onClick={addPlayer}
-                style={{
-                  flex: 1,
-                  background: '#10b981',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-lg font-medium transition-colors"
               >
                 Add Player
               </button>
               <button
-                onClick={() => setShowAddPlayerModal(false)}
-                style={{
-                  flex: 1,
-                  background: '#6b7280',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '500',
-                  cursor: 'pointer'
+                onClick={() => {
+                  setShowAddPlayerModal(false);
+                  setNewPlayerName('');
                 }}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
@@ -873,6 +639,81 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Par Edit Modal */}
+      {showParEditModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 text-center">Edit Par Values</h3>
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+              {Array.from({ length: 9 }, (_, i) => i + 1).map(hole => {
+                const parKey = `par${hole}` as keyof CourseSetup;
+                return (
+                  <div key={hole} className="text-center">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                      Hole {hole}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={editingPars[parKey] as number}
+                      onChange={(e) => setEditingPars({
+                        ...editingPars,
+                        [parKey]: parseInt(e.target.value) || 1
+                      })}
+                      className="w-full px-2 sm:px-3 py-2 border rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center mb-4">
+              <p className="text-sm sm:text-base text-gray-600">
+                Total Par: <span className="font-semibold text-purple-600">
+                  {Object.values(editingPars).reduce((sum, par) => sum + (typeof par === 'number' ? par : 0), 0)}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={updateParValues}
+                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
+              >
+                Save Par Values
+              </button>
+              <button
+                onClick={resetParValues}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
+              >
+                Reset to 4s
+              </button>
+              <button
+                onClick={() => setShowParEditModal(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RulesCard({ title, items, ordered = false }: { title: string; items: string[]; ordered?: boolean }) {
+  const ListComponent = ordered ? 'ol' : 'ul';
+  const listClass = ordered ? 'list-decimal list-inside' : 'list-disc list-inside';
+  
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+      <h3 className="text-xl font-semibold mb-4 text-gray-800">{title}</h3>
+      <ListComponent className={`space-y-2 text-gray-700 ${listClass}`}>
+        {items.map((item, index) => (
+          <li key={index} dangerouslySetInnerHTML={{ __html: item }} />
+        ))}
+      </ListComponent>
     </div>
   );
 }
