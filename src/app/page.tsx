@@ -188,10 +188,10 @@ export default function Home() {
 
                 <div className="bg-purple-50 p-6 rounded-lg">
                   <h3 className="font-bold text-xl mb-3 text-purple-800">⚔️ Foiling</h3>
-                  <p className="text-gray-700 mb-2">If your ball strikes another:</p>
+                  <p className="text-lg text-gray-700 mb-2">If your ball strikes another:</p>
                   <ul className="list-disc list-inside text-gray-700 space-y-1">
-                    <li><strong>Send:</strong> Move opponent's ball 1 wedge-head away</li>
-                    <li><strong>Burn:</strong> Reset opponent's ball to previous spot</li>
+                    <li><strong>Send:</strong> Move opponent&apos;s ball 1 wedge-head away</li>
+                    <li><strong>Burn:</strong> Reset opponent&apos;s ball to previous spot</li>
                     <li><strong>Choice:</strong> Accept or drink & ignore</li>
                   </ul>
                 </div>
