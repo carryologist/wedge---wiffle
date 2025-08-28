@@ -3,8 +3,5 @@
     "src/app/api/**/*.ts": {
       "maxDuration": 10
     }
-  },
-  "env": {
-    "DATABASE_URL": "@database_url"
   }
 }
