@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Game scores - array of 9 hole scores
+  hole1     Int      @default(0)
+  hole2     Int      @default(0)
+  hole3     Int      @default(0)
+  hole4     Int      @default(0)
+  hole5     Int      @default(0)
+  hole6     Int      @default(0)
+  hole7     Int      @default(0)
+  hole8     Int      @default(0)
+  hole9     Int      @default(0)
+  
+  @@map("players")
+}
+
+model GameState {
+  id          String   @id @default("current")
+  currentHole Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("game_state")
+}
