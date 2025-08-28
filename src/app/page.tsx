@@ -396,28 +396,28 @@ export default function Home() {
           {/* Scorecard Tab */}
           {activeTab === 'scorecard' && (
             <div className="space-y-6">
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-2 sm:gap-4">
                 <button
                   onClick={() => setShowAddPlayerModal(true)}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   + Add Player
                 </button>
                 <button
                   onClick={openParEditModal}
-                  className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   ⚙️ Edit Par
                 </button>
                 <button
                   onClick={clearScores}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   🔄 Clear Scores
                 </button>
                 <button
                   onClick={resetGame}
-                  className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
                 >
                   🗑️ Reset Game
                 </button>
@@ -643,14 +643,14 @@ export default function Home() {
       {/* Par Edit Modal */}
       {showParEditModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h3 className="text-xl font-semibold mb-4 text-center">Edit Par Values</h3>
-            <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4 text-center">Edit Par Values</h3>
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
               {Array.from({ length: 9 }, (_, i) => i + 1).map(hole => {
                 const parKey = `par${hole}` as keyof CourseSetup;
                 return (
                   <div key={hole} className="text-center">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Hole {hole}
                     </label>
                     <input
@@ -662,35 +662,35 @@ export default function Home() {
                         ...editingPars,
                         [parKey]: parseInt(e.target.value) || 1
                       })}
-                      className="w-full px-3 py-2 border rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 sm:px-3 py-2 border rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
                     />
                   </div>
                 );
               })}
             </div>
             <div className="text-center mb-4">
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 Total Par: <span className="font-semibold text-purple-600">
                   {Object.values(editingPars).reduce((sum, par) => sum + (typeof par === 'number' ? par : 0), 0)}
                 </span>
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={updateParValues}
-                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg font-medium transition-colors"
+                className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
               >
                 Save Par Values
               </button>
               <button
                 onClick={resetParValues}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
               >
                 Reset to 4s
               </button>
               <button
                 onClick={() => setShowParEditModal(false)}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition-colors"
+                className="bg-gray-500 hover:bg-gray-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base"
               >
                 Cancel
               </button>
