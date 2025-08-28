@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Player, GameState, CourseSetup } from '@/types';
 
 export default function Home() {
+  console.log('Wedge & Wiffle app loading...');
+  
   const [players, setPlayers] = useState<Player[]>([]);
   const [gameState, setGameState] = useState<GameState>({ currentHole: 1 });
   const [courseSetup, setCourseSetup] = useState<CourseSetup>({
